@@ -1,0 +1,32 @@
+id: git_push
+namespace: null
+
+tasks:
+  - id: push
+    type: io.kestra.plugin.core.flow.ForEach
+    values: ["system", "de_2025_zoomcamp"]
+    tasks:
+      - id: flows
+        type: io.kestra.plugin.git.PushFlows
+        sourceNamespace: "{{ taskrun.value }}"
+        gitDirectory: "{{'flows/' ~ taskrun.value}}"
+        includeChildNamespaces: false
+
+      - id: scripts
+        type: io.kestra.plugin.git.PushNamespaceFiles
+        namespace: "{{ taskrun.value }}"
+        gitDirectory: "{{'scripts/' ~ taskrun.value}}"
+
+pluginDefaults:
+  - type: io.kestra.plugin.git
+    values:
+      username: majay777
+      url: https://github.com/majay777/Kestra_pgadmin
+      password: "{{ secret('GITHUB_ACCESS_TOKEN') }}"
+      branch: dev
+      dryRun: false
+
+# triggers:
+#   - id: schedule_push_to_git
+#     type: io.kestra.plugin.core.trigger.Schedule
+#     cron: "0 11 * * 4"
