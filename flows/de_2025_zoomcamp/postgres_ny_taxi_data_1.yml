@@ -1,0 +1,128 @@
+id: postgres_ny_taxi_data_1
+namespace: null
+
+
+inputs:
+  - id: taxi
+    type: ARRAY
+    itemType: STRING
+    displayName: Choose Taxi
+    description: Choose the taxi, which data to get from url.
+    defaults:
+      - yellow
+      - green
+    
+  
+  - id: year
+    type: ARRAY
+    itemType: STRING
+    displayName: Select Year
+    defaults:
+      - '2021'
+      - '2019'
+    
+  
+  - id: month
+    type: ARRAY
+    itemType: STRING
+    displayName: Select a month
+    defaults:
+      - '01'
+      - '02'
+    
+    
+
+
+
+tasks:
+  - id: taxis
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{inputs.taxi}}"
+    tasks:
+      - id: year
+        type: io.kestra.plugin.core.flow.ForEach
+        values: "{{inputs.year}}"
+        tasks:
+          - id: month
+            type: io.kestra.plugin.core.flow.ForEach
+            values: "{{inputs.month}}"
+            tasks:
+
+              - id: Set_Label
+                type: io.kestra.plugin.core.execution.Labels
+                labels:
+                  file: "{{ parents[1].taskrun.value ~ '_taxi_tripdata_' ~  'parents[0].taskrun.value' ~ '_' ~ 'taskrun.value' ~ '.csv'}}"
+                  taxi: '{{parents[1].taskrun.value}}'
+              
+              - id: Extract_data
+                type: io.kestra.plugin.scripts.python.Script
+                outputFiles: 
+                  - "*.csv"
+                beforeCommands:
+                  - pip install pandas  fastparquet > /dev/null
+                script: |
+                  import pandas as pd
+                  df = pd.read_parquet("https://d37ci6vzurychx.cloudfront.net/trip-data/{{parents[1].taskrun.value}}_tripdata_{{parents[0].taskrun.value}}_{{taskrun.value}}.parquet")
+
+                  df.to_csv("{{parents[1].taskrun.value}}_taxi_tripdata_{{parents[0].taskrun.value}}_{{taskrun.value}}.csv", index=False)
+              - id: if_yellow_taxi
+                type: io.kestra.plugin.core.flow.If
+                condition: '{{ parents[1].taskrun.value == "yellow" }}'
+                then:
+                  - id: yellow_subflow
+                    type: io.kestra.plugin.core.flow.Subflow
+                    flowId: yellow_taxi_subflow
+                    namespace: null
+                    inputs:
+                      taxi: "{{ parents[1].taskrun.value }}"
+                      year: "{{ parents[0].taskrun.value }}"
+                      month: "{{ taskrun.value }}"
+                    wait: true
+            
+              - id: if_green_taxi
+                type: io.kestra.plugin.core.flow.If
+                condition: "{{inputs.taxi == 'green'}}"
+                then:
+                  - id: green_subflow
+                    type: io.kestra.plugin.core.flow.Subflow
+                    flowId: green_taxi_subflow
+                    namespace: null
+                    inputs:
+                      taxi: "{{ parents[1].taskrun.value }}"
+                      year: "{{ parents[0].taskrun.value }}"
+                      month: "{{ taskrun.value }}"
+                    wait: true
+
+  
+  - id: purge_file
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: This will remove output files. If you'd like to explore Kestra outputs, dis
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.jdbc.postgresql
+    values: 
+      url: jdbc:postgresql://postgres_db:5432/ny_taxi
+      username: ny_taxi_user
+      password: ny_taxi_user_password
+
+
+# triggers:
+#   - id: green_trigger
+#     type: io.kestra.plugin.core.trigger.Schedule
+#     cron: 0 9 1 * *
+#     inputs:
+#       taxi: green
+  
+
+#   - id: yellow_trigger
+#     type: io.kestra.plugin.core.trigger.Schedule
+#     cron: "0 10 1 * *"
+#     inputs:
+#       taxi: yellow
+  
+    
+  
+
+
+
