@@ -1,0 +1,22 @@
+id: push_to_git
+namespace: null
+
+tasks:
+  - id: commit_and_push
+    type: io.kestra.plugin.git.PushFlows
+    sourceNamespace: dev # the namespace from which flows are pushed
+    targetNamespace: prod # the target production namespace; if different than sourceNamespace, the sourceNamespace in the source code will be overwritten by the targetNamespace
+    flows: "*"  # optional list of glob patterns; by default, all flows are pushed
+    includeChildNamespaces: true # optional boolean, false by default
+    gitDirectory: flows
+    url: https://github.com/majay777/Kestra_pgadmin # required string
+    username: majay777 # required string needed for Auth with Git
+    password: "{{ secret('GITHUB_ACCESS_TOKEN') }}"
+    branch: main
+    commitMessage: "add flows {{ now() }}" # optional string
+    dryRun: false  # if true, you'll see what files will be added, modified or deleted based on the state in Git without overwriting the files yet
+
+# triggers:
+#   - id: schedule_push
+#     type: io.kestra.plugin.core.trigger.Schedule
+#     cron: "0 17 * * *" # release/push to Git every day at 5pm
